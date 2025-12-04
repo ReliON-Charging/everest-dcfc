@@ -99,6 +99,8 @@ jobs:
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-${{ matrix.suffix }}
           labels: ${{ steps.meta.outputs.labels }}
+          provenance: false
+          sbom: false
           cache-from: |
             type=gha
             type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
