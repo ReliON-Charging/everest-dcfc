@@ -1,0 +1,250 @@
+# EVerest Configuration for OCPP 2.0.1 / 2.1
+# Config with 1 EVSE to match device model database
+
+active_modules:
+  # --- EVSE Manager (100kW DC Fast Charger) ---
+  evse_manager_1:
+    module: EvseManager
+    config_module:
+      connector_id: 1
+      evse_id: "US*EVE*E000001*1"
+      charge_mode: DC
+      has_ventilation: true
+      session_logging: true
+      session_logging_path: /tmp/everest-logs
+      max_current_import_A: 250
+      max_current_export_A: 250
+      ac_nominal_voltage: 400
+      payment_enable_eim: true
+      payment_enable_contract: false
+    connections:
+      bsp:
+        - module_id: yeti_driver_1
+          implementation_id: board_support
+      powermeter_grid_side:
+        - module_id: dc_supply
+          implementation_id: powermeter
+      slac:
+        - module_id: slac_sim
+          implementation_id: evse
+      hlc:
+        - module_id: evse_v2g
+          implementation_id: charger
+      powersupply_DC:
+        - module_id: dc_supply
+          implementation_id: main
+      imd:
+        - module_id: imd_sim
+          implementation_id: main
+
+  # --- Hardware Simulator (Yeti) ---
+  yeti_driver_1:
+    module: YetiSimulator
+    config_module:
+      connector_id: 1
+      max_current_A_import: 500.0
+      min_current_A_import: 0.0
+      max_current_A_export: 500.0
+
+  # --- DC Power Supply Simulator ---
+  dc_supply:
+    module: DCSupplySimulator
+    config_implementation:
+      main:
+        max_current: 375.0
+        max_power: 150000
+
+  # --- Isolation Monitor Simulator (for DC Cable Check) ---
+  imd_sim:
+    module: IMDSimulator
+
+  # --- SLAC Simulator (for HLC communication) ---
+  slac_sim:
+    module: SlacSimulator
+
+  # --- ISO 15118 SECC (EvseV2G - Real Implementation) ---
+  evse_v2g:
+    module: EvseV2G
+    config_module:
+      device: eth0
+      supported_DIN70121: true
+      supported_ISO15118_2: true
+      enable_sdp_server: true
+    connections:
+      security:
+        - module_id: evse_security
+          implementation_id: main
+
+  # --- ISO 15118 EV (PyEvJosev) ---
+  ev_iso:
+    module: PyEvJosev
+    config_module:
+      device: eth0
+      supported_ISO15118_2: true
+      supported_ISO15118_20_DC: true
+
+  # --- EV Simulator (Car Simulation for DC Fast Charging) ---
+  ev_manager_1:
+    module: EvManager
+    config_module:
+      connector_id: 1
+      auto_enable: false
+      auto_exec: false
+      # DC charging parameters (100kW capable EV)
+      dc_max_power_limit: 100000
+      dc_max_current_limit: 250
+      dc_max_voltage_limit: 500
+      dc_target_voltage: 400
+      dc_target_current: 250
+      dc_energy_capacity: 75000
+    connections:
+      ev_board_support:
+        - module_id: yeti_driver_1
+          implementation_id: ev_board_support
+      slac:
+        - module_id: slac_sim
+          implementation_id: ev
+      ev:
+        - module_id: ev_iso
+          implementation_id: ev
+
+  # --- OCPP 2.0.1 Module ---
+  ocpp:
+    module: OCPP201
+    config_module:
+      MessageLogPath: /tmp/everest-logs/ocpp
+      CoreDatabasePath: /var/lib/everest/ocpp201
+      DeviceModelDatabasePath: /var/lib/everest/ocpp201/device_model.db
+      DeviceModelDatabaseMigrationPath: /usr/local/share/everest/modules/OCPP201/device_model_migrations
+      DeviceModelConfigPath: /var/lib/everest/ocpp201/component_config
+    connections:
+      evse_manager:
+        - module_id: evse_manager_1
+          implementation_id: evse
+      auth:
+        - module_id: auth
+          implementation_id: main
+      system:
+        - module_id: system
+          implementation_id: main
+      security:
+        - module_id: evse_security
+          implementation_id: main
+      evse_energy_sink:
+        - module_id: grid_connection_point
+          implementation_id: external_limits
+        - module_id: evse_manager_1_ocpp_sink
+          implementation_id: external_limits
+
+  # --- Security Module ---
+  evse_security:
+    module: EvseSecurity
+    config_module:
+      private_key_password: ""
+
+  # --- Auth Module ---
+  token_provider_1:
+    module: DummyTokenProviderManual
+
+  auth:
+    module: Auth
+    config_module:
+      connection_timeout: 120
+      selection_algorithm: PlugEvents
+    connections:
+      token_provider:
+        - module_id: token_provider_1
+          implementation_id: main
+        - module_id: ocpp
+          implementation_id: auth_provider
+        - module_id: evse_manager_1
+          implementation_id: token_provider
+      token_validator:
+        - module_id: ocpp
+          implementation_id: auth_validator
+      evse_manager:
+        - module_id: evse_manager_1
+          implementation_id: evse
+      kvs:
+        - module_id: persistent_store
+          implementation_id: main
+
+  # --- Energy Management (for Charging Profiles) ---
+  energy_manager:
+    module: EnergyManager
+    config_module:
+      slice_ampere: 5.0
+      slice_watt: 5000
+    connections:
+      energy_trunk:
+        - module_id: grid_connection_point
+          implementation_id: energy_grid
+
+  grid_connection_point:
+    module: EnergyNode
+    mapping:
+      module:
+        evse: 0
+    config_module:
+      fuse_limit_A: 300.0
+      phase_count: 3
+    connections:
+      price_information: []
+      energy_consumer:
+        - module_id: evse_manager_1_api_sink
+          implementation_id: energy_grid
+      powermeter:
+        - module_id: yeti_driver_1
+          implementation_id: powermeter
+
+  evse_manager_1_api_sink:
+    module: EnergyNode
+    mapping:
+      module:
+        evse: 1
+    config_module:
+      fuse_limit_A: 300.0
+      phase_count: 3
+    connections:
+      energy_consumer:
+        - module_id: evse_manager_1_ocpp_sink
+          implementation_id: energy_grid
+      powermeter:
+        - module_id: yeti_driver_1
+          implementation_id: powermeter
+
+  evse_manager_1_ocpp_sink:
+    module: EnergyNode
+    mapping:
+      module:
+        evse: 1
+    config_module:
+      fuse_limit_A: 300.0
+      phase_count: 3
+    connections:
+      energy_consumer:
+        - module_id: evse_manager_1
+          implementation_id: energy_grid
+
+  # --- API for Node-RED ---
+  api:
+    module: API
+    connections:
+      evse_manager:
+        - module_id: evse_manager_1
+          implementation_id: evse
+      evse_energy_sink:
+        - module_id: evse_manager_1_api_sink
+          implementation_id: external_limits
+
+  # --- System Module ---
+  system:
+    module: System
+
+  # --- Persistent Store (for Reservations) ---
+  persistent_store:
+    module: PersistentStore
+    config_module:
+      sqlite_db_file_path: /var/lib/everest/persistent_store.db
+
+x-module-layout: {}

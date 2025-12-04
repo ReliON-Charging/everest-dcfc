@@ -1,0 +1,55 @@
+{
+  "Internal": {
+    "ChargePointId": "{{OCPP_ID}}",
+    "CentralSystemURI": "{{OCPP_URL}}/{{OCPP_ID}}",
+    "ChargeBoxSerialNumber": "EV-DOCKER-001",
+    "ChargePointModel": "DCFCv1",
+    "ChargePointVendor": "Relion",
+    "FirmwareVersion": "1.0.0",
+    "WebsocketPongTimeout": 5,
+    "CompositeScheduleDefaultLimitAmps": 300,
+    "CompositeScheduleDefaultLimitWatts": 207000
+  },
+  "Core": {
+    "AuthorizeRemoteTxRequests": false,
+    "ClockAlignedDataInterval": 900,
+    "ConnectionTimeOut": 30,
+    "WebSocketPingInterval": 30,
+    "ConnectorPhaseRotation": "0.RST,1.RST",
+    "GetConfigurationMaxKeys": 100,
+    "HeartbeatInterval": 86400,
+    "LocalAuthorizeOffline": false,
+    "LocalPreAuthorize": false,
+    "MeterValuesAlignedData": "Energy.Active.Import.Register",
+    "MeterValuesSampledData": "Energy.Active.Import.Register,Energy.Active.Export.Register,Power.Active.Import,Voltage,Current.Import,Frequency,Current.Offered,Power.Offered,SoC,Temperature",
+    "MeterValueSampleInterval": 15,
+    "NumberOfConnectors": 1,
+    "ResetRetries": 1,
+    "StopTransactionOnEVSideDisconnect": true,
+    "StopTransactionOnInvalidId": true,
+    "StopTxnAlignedData": "Energy.Active.Import.Register",
+    "StopTxnSampledData": "Energy.Active.Import.Register",
+    "SupportedFeatureProfiles": "Core,FirmwareManagement,RemoteTrigger,Reservation,LocalAuthListManagement,SmartCharging",
+    "TransactionMessageAttempts": 1,
+    "TransactionMessageRetryInterval": 10,
+    "UnlockConnectorOnEVSideDisconnect": true
+  },
+  "FirmwareManagement": {
+    "SupportedFileTransferProtocols": "FTP"
+  },
+  "Security": {
+    "SecurityProfile": 0,
+    "CpoName": "Relion"
+  },
+  "LocalAuthListManagement": {
+    "LocalAuthListEnabled": true,
+    "LocalAuthListMaxLength": 100,
+    "SendLocalListMaxLength": 20
+  },
+  "SmartCharging": {
+    "ChargeProfileMaxStackLevel": 200,
+    "ChargingScheduleAllowedChargingRateUnit": "Current,Power",
+    "ChargingScheduleMaxPeriods": 24,
+    "MaxChargingProfilesInstalled": 20
+  }
+}

@@ -1,0 +1,114 @@
+# Docker Compose: EVerest OCPP Client Testing with CitrineOS
+#
+# Tests both OCPP 1.6 and OCPP 2.0.1 against CitrineOS CSMS
+#
+# Usage:
+#   # Test OCPP 2.0.1 (default)
+#   docker compose -f docker-compose.test.yml up -d
+#
+#   # Test OCPP 1.6
+#   OCPP_VERSION=1.6 OCPP_PORT=8092 docker compose -f docker-compose.test.yml up -d
+#
+# Ports:
+#   - 1880: Node-RED Dashboard/Editor
+#   - 8080: CitrineOS REST API
+#   - 8081: CitrineOS OCPP 2.0.1 WebSocket (Security Profile 0 - no auth)
+#   - 8082: CitrineOS OCPP 2.0.1 WebSocket (Security Profile 1)
+#   - 8092: CitrineOS OCPP 1.6 WebSocket
+
+services:
+  # =============================================================================
+  # CitrineOS Dependencies
+  # =============================================================================
+
+  amqp-broker:
+    image: rabbitmq:3-management
+    ports:
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: rabbitmq-diagnostics -q check_port_connectivity
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  ocpp-db:
+    image: postgis/postgis:16-3.5
+    platform: linux/amd64
+    environment:
+      POSTGRES_DB: citrine
+      POSTGRES_USER: citrine
+      POSTGRES_PASSWORD: citrine
+    healthcheck:
+      test: pg_isready --username=citrine
+      interval: 5s
+      timeout: 10s
+      retries: 5
+
+  # =============================================================================
+  # CitrineOS CSMS (supports both OCPP 1.6 and 2.0.1)
+  # =============================================================================
+
+  citrine:
+    image: ghcr.io/citrineos/citrineos-server:v1.8.0
+    environment:
+      APP_NAME: all
+      APP_ENV: docker
+      DB_STRATEGY: migrate
+      BOOTSTRAP_CITRINEOS_DATABASE_HOST: ocpp-db
+      BOOTSTRAP_CITRINEOS_CONFIG_FILENAME: config.json
+    depends_on:
+      ocpp-db:
+        condition: service_healthy
+      amqp-broker:
+        condition: service_healthy
+    ports:
+      - "8080:8080"   # REST API
+      - "8081:8081"   # OCPP 2.0.1 WebSocket (Security Profile 0 - no auth)
+      - "8082:8082"   # OCPP 2.0.1 WebSocket (Security Profile 1)
+      - "8092:8092"   # OCPP 1.6 WebSocket
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:8080', r => process.exit(r.statusCode === 404 ? 0 : 1)).on('error', () => process.exit(1))\""]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # =============================================================================
+  # EVerest OCPP Client (Charger)
+  # Set CHARGER_IMAGE env var to use pre-built image (for CI)
+  # =============================================================================
+
+  charger:
+    image: ${CHARGER_IMAGE:-everest-charger:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      OCPP_VERSION: "${OCPP_VERSION:-2.0.1}"
+      OCPP_URL: "ws://citrine:${OCPP_PORT:-8081}"
+      OCPP_ID: "${OCPP_ID:-cp001}"
+      OCPP_AUTH_PASSWORD: "${OCPP_AUTH_PASSWORD:-DEADBEEFDEADBEEF}"
+    ports:
+      - "1880:1880"   # Node-RED Dashboard/Editor
+      - "1883:1883"   # MQTT (for debugging)
+    depends_on:
+      citrine:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1880/admin/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+networks:
+  default:
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: 172.18.0.0/16
+        - subnet: fd00::/64

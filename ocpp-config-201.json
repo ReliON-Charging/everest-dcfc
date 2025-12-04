@@ -1,0 +1,145 @@
+{
+  "InternalCtrlr": {
+    "ChargePointId": "{{OCPP_ID}}",
+    "NetworkConnectionProfiles": [
+      {
+        "configurationSlot": 1,
+        "connectionData": {
+          "messageTimeout": 30,
+          "ocppCsmsUrl": "{{OCPP_URL}}",
+          "ocppInterface": "Wired0",
+          "ocppTransport": "JSON",
+          "ocppVersion": "OCPP20",
+          "securityProfile": 0
+        }
+      }
+    ],
+    "ChargeBoxSerialNumber": "EV-DOCKER-001",
+    "ChargePointModel": "EVerest-Docker",
+    "ChargePointVendor": "EVerest",
+    "FirmwareVersion": "1.0.0"
+  },
+  "AlignedDataCtrlr": {
+    "AlignedDataInterval": 900,
+    "AlignedDataMeasurands": "Energy.Active.Import.Register",
+    "AlignedDataTxEndedInterval": 0,
+    "AlignedDataTxEndedMeasurands": "Energy.Active.Import.Register"
+  },
+  "AuthCacheCtrlr": {
+    "AuthCacheEnabled": true,
+    "AuthCacheLifeTime": 86400
+  },
+  "AuthCtrlr": {
+    "AuthorizeRemoteStart": true,
+    "LocalAuthorizeOffline": true,
+    "LocalPreAuthorize": true,
+    "MasterPassGroupId": ""
+  },
+  "ChargingStationCtrlr": {
+    "ChargingStationAvailable": true,
+    "ChargingStationSupplyPhases": 3
+  },
+  "ClockCtrlr": {
+    "NtpServerUri": "",
+    "NtpSource": "DHCP",
+    "TimeOffset": "+00:00",
+    "TimeSource": "NTP",
+    "TimeZone": "UTC"
+  },
+  "ConnectivityCtrlr": {
+    "FileTransferProtocols": ["FTP", "HTTP", "HTTPS"],
+    "MessageTimeout": 30,
+    "NetworkConfigurationPriority": "1",
+    "NetworkProfileConnectionAttempts": 3,
+    "OfflineThreshold": 60,
+    "PublicKeyWithSignedMeterValue": false,
+    "UnlockOnEVSideDisconnect": true,
+    "WebSocketPingInterval": 30
+  },
+  "DeviceDataCtrlr": {
+    "BytesPerMessage": 512,
+    "ConfigurationValueSize": 500,
+    "ItemsPerMessage": 24,
+    "ReportingValueSize": 2048
+  },
+  "DisplayMessageCtrlr": {
+    "DisplayMessageEnabled": false,
+    "NumberOfDisplayMessages": 0
+  },
+  "LocalAuthListCtrlr": {
+    "BytesPerMessage": 1024,
+    "DisablePostAuthorize": false,
+    "ItemsPerMessage": 24,
+    "LocalAuthListEnabled": true,
+    "Storage": 1000
+  },
+  "MonitoringCtrlr": {
+    "ActiveMonitoringBase": "All",
+    "ActiveMonitoringLevel": 9,
+    "BytesPerMessage": 512,
+    "ItemsPerMessage": 24,
+    "MonitoringEnabled": true,
+    "OfflineQueuingSeverity": 9
+  },
+  "OCPPCommCtrlr": {
+    "ActiveNetworkProfile": "1",
+    "FileTransferProtocols": ["FTP", "HTTP", "HTTPS"],
+    "HeartbeatInterval": 60,
+    "MessageTimeout": 30,
+    "NetworkConfigurationPriority": "1",
+    "NetworkProfileConnectionAttempts": 3,
+    "OfflineThreshold": 60,
+    "PublicKeyWithSignedMeterValue": false,
+    "QueueAllMessages": false,
+    "ResetRetries": 3,
+    "RetryBackOffRandomRange": 60,
+    "RetryBackOffRepeatTimes": 3,
+    "RetryBackOffWaitMinimum": 10,
+    "UnlockOnEVSideDisconnect": true,
+    "WebSocketPingInterval": 30
+  },
+  "ReservationCtrlr": {
+    "ReservationEnabled": true,
+    "ReservationNonEvseSpecific": false
+  },
+  "SampledDataCtrlr": {
+    "SampledDataEnabled": true,
+    "SampledDataSignReadings": false,
+    "SampledDataTxEndedInterval": 60,
+    "SampledDataTxEndedMeasurands": "Energy.Active.Import.Register",
+    "SampledDataTxStartedMeasurands": "Energy.Active.Import.Register",
+    "SampledDataTxUpdatedInterval": 15,
+    "SampledDataTxUpdatedMeasurands": "Energy.Active.Import.Register,Power.Active.Import,Current.Import,Voltage"
+  },
+  "SecurityCtrlr": {
+    "BasicAuthPassword": "",
+    "CertificateEntries": 10,
+    "Identity": "{{OCPP_ID}}",
+    "OrganizationName": "EVerest",
+    "SecurityProfile": 0
+  },
+  "SmartChargingCtrlr": {
+    "ACPhaseSwitchingSupported": false,
+    "ChargingProfileMaxStackLevel": 200,
+    "ChargingScheduleChargingRateUnit": ["A", "W"],
+    "EntriesChargingProfiles": 100,
+    "LimitChangeSignificance": 1,
+    "NotifyChargingLimitWithSchedules": true,
+    "PeriodsPerSchedule": 24,
+    "Phases3to1": false,
+    "ProfileStackLevel": 10
+  },
+  "TariffCostCtrlr": {
+    "TariffCostEnabled": false
+  },
+  "TxCtrlr": {
+    "EVConnectionTimeOut": 30,
+    "MaxEnergyOnInvalidId": 0,
+    "StopTxOnEVSideDisconnect": true,
+    "StopTxOnInvalidId": true,
+    "TxBeforeAcceptedEnabled": false,
+    "TxStartPoint": "EVConnected",
+    "TxStopPoint": "EVConnected"
+  }
+}
+

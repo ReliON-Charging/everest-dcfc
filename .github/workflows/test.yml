@@ -1,0 +1,206 @@
+name: Test EVerest OCPP Client
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: everest-ocpp:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Save Docker image
+        run: docker save everest-ocpp:test > /tmp/everest-ocpp.tar
+
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp/everest-ocpp.tar
+          retention-days: 1
+
+  test-ocpp-201:
+    name: Test OCPP 2.0.1
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Docker image
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp
+
+      - name: Load Docker image
+        run: docker load < /tmp/everest-ocpp.tar
+
+      - name: Install BATS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats jq
+
+      - name: Start test stack (OCPP 2.0.1)
+        run: |
+          export OCPP_VERSION=2.0.1
+          export OCPP_PORT=8081
+          docker compose -f docker-compose.test.yml up -d
+        env:
+          COMPOSE_DOCKER_CLI_BUILD: 0
+
+      - name: Wait for services
+        run: |
+          echo "Waiting for CitrineOS..."
+          timeout 180 bash -c 'until curl -sf http://localhost:8080/health; do sleep 5; done' || true
+          echo "Waiting for Node-RED..."
+          timeout 60 bash -c 'until curl -sf http://localhost:1880/; do sleep 5; done' || true
+
+      - name: Check service health
+        run: |
+          docker compose -f docker-compose.test.yml ps
+          echo "--- CitrineOS Logs ---"
+          docker compose -f docker-compose.test.yml logs citrine | tail -50
+          echo "--- Charger Logs ---"
+          docker compose -f docker-compose.test.yml logs charger | tail -50
+
+      - name: Test Node-RED accessible
+        run: curl -sf http://localhost:1880/ > /dev/null
+
+      - name: Test Node-RED dashboard accessible
+        run: curl -sf http://localhost:1880/ui/ > /dev/null
+
+      - name: Cleanup
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v --remove-orphans
+
+  test-ocpp-16:
+    name: Test OCPP 1.6
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Docker image
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp
+
+      - name: Load Docker image
+        run: docker load < /tmp/everest-ocpp.tar
+
+      - name: Install BATS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats jq
+
+      - name: Start test stack (OCPP 1.6)
+        run: |
+          export OCPP_VERSION=1.6
+          export OCPP_PORT=8092
+          docker compose -f docker-compose.test.yml up -d
+        env:
+          COMPOSE_DOCKER_CLI_BUILD: 0
+
+      - name: Wait for services
+        run: |
+          echo "Waiting for CitrineOS..."
+          timeout 180 bash -c 'until curl -sf http://localhost:8080/health; do sleep 5; done' || true
+          echo "Waiting for Node-RED..."
+          timeout 60 bash -c 'until curl -sf http://localhost:1880/; do sleep 5; done' || true
+
+      - name: Check service health
+        run: |
+          docker compose -f docker-compose.test.yml ps
+          echo "--- CitrineOS Logs ---"
+          docker compose -f docker-compose.test.yml logs citrine | tail -50
+          echo "--- Charger Logs ---"
+          docker compose -f docker-compose.test.yml logs charger | tail -50
+
+      - name: Test Node-RED accessible
+        run: curl -sf http://localhost:1880/ > /dev/null
+
+      - name: Test Node-RED dashboard accessible
+        run: curl -sf http://localhost:1880/ui/ > /dev/null
+
+      - name: Cleanup
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v --remove-orphans
+
+  # Publish image on main branch
+  publish:
+    name: Publish Docker Image
+    runs-on: ubuntu-latest
+    needs: [test-ocpp-201, test-ocpp-16]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+

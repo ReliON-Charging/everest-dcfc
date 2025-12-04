@@ -1,0 +1,44 @@
+description: SIL simulator for YETI hardware v1.0
+config:
+  connector_id:
+    description: Connector id of the evse manager to which this simulator is connected to
+    type: integer
+  reset_powermeter_on_session_start:
+    description: Reset absolute powermeter readings to zero when CP changes from state A to B
+    type: boolean
+    default: true
+  max_current_A_import:
+    description: Maximum current in Amps for import (charging). Set higher for DC charging simulation.
+    type: number
+    default: 32.0
+  min_current_A_import:
+    description: Minimum current in Amps for import (charging)
+    type: number
+    default: 6.0
+  max_current_A_export:
+    description: Maximum current in Amps for export (V2G)
+    type: number
+    default: 16.0
+provides:
+  powermeter:
+    interface: powermeter
+    description: provides the Yeti Internal Power Meter
+  board_support:
+    interface: evse_board_support
+    description: provides the EVSE board support Interface to low level control pilot, relais, rcd, motor lock
+  ev_board_support:
+    interface: ev_board_support
+    description: provides the EV board support Interface to low level control pilot, relais, rcd
+  rcd:
+    interface: ac_rcd
+    description: Interface for the simulated AC RCD
+  connector_lock:
+    interface: connector_lock
+    description: Interface for the simulated Connector lock
+enable_external_mqtt: true
+enable_telemetry: true
+metadata:
+  license: https://opensource.org/licenses/Apache-2.0
+  authors:
+    - Cornelius Claussen
+    - Tobias Marzell (Pionix GmbH)
