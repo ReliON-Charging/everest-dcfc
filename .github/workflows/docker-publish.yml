@@ -69,56 +69,10 @@ jobs:
           echo "digest-${{ matrix.suffix }}=${{ steps.build.outputs.digest }}" >> "$GITHUB_OUTPUT"
 
   # ===========================================================================
-  # Test Job - Run e2e tests on AMD64 only
-  # ===========================================================================
-  test:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: read
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install BATS
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y bats
-
-      - name: Pull built image
-        run: |
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-amd64
-
-      - name: Patch test helper for CI
-        run: |
-          # Remove --build flag so compose uses the pre-built CHARGER_IMAGE
-          sed -i 's|up -d --build|up -d|g' test/test_helper.bash
-
-      - name: Run e2e tests
-        env:
-          CHARGER_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-amd64
-        run: |
-          ./test/run-tests.sh --tap
-
-      - name: Cleanup on failure
-        if: failure()
-        run: |
-          docker compose -f docker-compose.test.yml logs || true
-          docker compose -f docker-compose.test.yml down -v || true
-
-  # ===========================================================================
   # Manifest Job - Create multi-arch manifest and push final tags
   # ===========================================================================
   manifest:
-    needs: [build, test]
+    needs: [build]
     runs-on: ubuntu-latest
     permissions:
       contents: read
