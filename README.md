@@ -2,6 +2,8 @@
 
 A multi-arch container that makes it easy to spin up a virtual DCFC for testing.
 
+![node red](screenshots/dashboard_charging.png "Dashboard")
+
 ## Features
 
 - **Multi-Architecture**: Supports ARM64 (Apple Silicon, Raspberry Pi) and AMD64
@@ -68,8 +70,6 @@ The included Node-RED dashboard provides:
 - **Charging Controls**: Pause/Resume charging sessions
 - **Monitoring**: Real-time power, voltage, temperature display
 - **State Display**: Current charging state
-
-![node red](screenshots/dashboard_charging.png "Dashboard")
 
 ## Architecture
 
