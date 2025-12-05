@@ -12,12 +12,6 @@ A multi-arch container that makes it easy to spin up a virtual DCFC for testing.
 
 ## Quick Start
 
-### Build the Image
-
-```bash
-docker build -t everest-ocpp .
-```
-
 ### Run the Container
 
 Create a network w/ IPv6 enabled:
@@ -35,7 +29,7 @@ docker run -d \
   -e OCPP_VERSION=1.6 \
   -e OCPP_URL=ws://your-csms-server:9000 \
   -e OCPP_ID=CP001 \
-  everest-ocpp
+  ghcr.io/relion-charging/everest-dcfc:latest
 ```
 
 Using OCPP 2.0.1:
@@ -48,7 +42,7 @@ docker run -d \
   -e OCPP_VERSION=2.0.1 \
   -e OCPP_URL=ws://your-csms-server:9000 \
   -e OCPP_ID=CP001 \
-  everest-ocpp
+  ghcr.io/relion-charging/everest-dcfc:latest
 ```
 
 ## Environment Variables
@@ -64,7 +58,7 @@ docker run -d \
 Once the container is running:
 
 - **Node-RED Dashboard**: http://localhost:1880/ui
-- **Node-RED Editor**: http://localhost:1880
+- **Node-RED Editor**: http://localhost:1880/admin
 
 ## Node-RED Dashboard Features
 
@@ -72,9 +66,10 @@ The included Node-RED dashboard provides:
 
 - **Car Simulation Controls**: Plugin/Unplug simulated EV
 - **Charging Controls**: Pause/Resume charging sessions
-- **Current Slider**: Adjust max charging current
 - **Monitoring**: Real-time power, voltage, temperature display
 - **State Display**: Current charging state
+
+![node red](screenshots/dashboard_charging.png "Dashboard")
 
 ## Architecture
 
