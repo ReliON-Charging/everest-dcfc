@@ -8,6 +8,7 @@ A multi-arch container that makes it easy to spin up a virtual DCFC for testing.
 
 - **Multi-Architecture**: Supports ARM64 (Apple Silicon, Raspberry Pi) and AMD64
 - **OCPP Support**: Configurable OCPP version (1.6, 2.0.1, 2.1) via environment variable
+- **Multi-Connector**: Configurable number of EVSEs/connectors (1–16) via `NUM_CONNECTORS`
 - **Charging Profiles**: Full support for smart charging profiles
 - **Node-RED Dashboard**: Visual interface for simulation control and monitoring
 - **Debug Build**: Full debug symbols for detailed crash stack traces
@@ -47,6 +48,20 @@ docker run -d \
   ghcr.io/relion-charging/everest-dcfc:latest
 ```
 
+Starting a charger with 8 connectors:
+
+```bash
+docker run -d \
+  --name everest \
+  --network ip6net \
+  -p 1880:1880 \
+  -e OCPP_VERSION=1.6 \
+  -e OCPP_URL=ws://your-csms-server:9000 \
+  -e OCPP_ID=CP001 \
+  -e NUM_CONNECTORS=8 \
+  ghcr.io/relion-charging/everest-dcfc:latest
+```
+
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -54,6 +69,19 @@ docker run -d \
 | `OCPP_VERSION` | `1.6` | OCPP version to use. Options: `1.6`, `2.0.1`, `2.1` |
 | `OCPP_URL` | `ws://localhost:9000` | WebSocket URL of the CSMS (Central System) |
 | `OCPP_ID` | `CP1` | Charge Point ID for OCPP registration |
+| `NUM_CONNECTORS` | `1` | Number of EVSEs/connectors to simulate (1–16) |
+
+### Multi-Connector Details
+
+When `NUM_CONNECTORS` is set to more than 1, the container dynamically generates a full EVerest module stack for each connector at startup. Each connector gets its own `evse_manager`, `yeti_driver`, `dc_supply`, `slac`, `evse_v2g`, and `ev_manager` modules with independently addressable MQTT topics.
+
+In the Node-RED dashboard, use the **"Select Connector #"** numeric input in the Connector panel to target a specific connector before clicking simulation or control buttons. For example, to start a session on connector 7 of an 8-connector charger:
+
+1. Set `NUM_CONNECTORS=8` when starting the container
+2. Open the Node-RED dashboard at http://localhost:1880/dashboard
+3. Set "Select Connector #" to `7`
+4. Toggle "Enable EV Simulation" on
+5. Click "Car Plugin" to start a session on connector 7
 
 ## Accessing the Interfaces
 
@@ -102,16 +130,20 @@ The included Node-RED dashboard provides:
 ## File Structure
 
 ```
-├── Dockerfile              # Multi-stage build for EVerest
-├── entrypoint.sh           # Startup script with config injection
-├── supervisord.conf        # Process manager configuration
-├── config-ocpp16.yaml      # EVerest config for OCPP 1.6
-├── config-ocpp201.yaml     # EVerest config for OCPP 2.0.1/2.1
-├── ocpp-config-16.json     # OCPP 1.6 protocol configuration
-├── ocpp-config-201.json    # OCPP 2.0.1 protocol configuration
-├── flows.json              # Node-RED dashboard flows
-└── README.md               # This file
+├── Dockerfile                   # Multi-stage build: EVerest + gomplate binary
+├── entrypoint.sh                # Startup script: runs gomplate, injects OCPP config
+├── supervisord.conf             # Process manager configuration
+├── config-ocpp16.yaml.tmpl      # Gomplate template → EVerest config for OCPP 1.6
+├── config-ocpp201.yaml.tmpl     # Gomplate template → EVerest config for OCPP 2.0.1/2.1
+├── ocpp-config-16.json          # OCPP 1.6 protocol configuration (processed by jq)
+├── ocpp-config-201.json         # OCPP 2.0.1 protocol configuration (processed by jq)
+├── flows.json                   # Node-RED dashboard flows
+└── README.md                    # This file
 ```
+
+At runtime, `entrypoint.sh` calls `gomplate` on the appropriate `.tmpl` file. The template loops over `NUM_CONNECTORS` to emit one full EVerest module stack per connector, then appends the shared module section. The resulting `/etc/everest/config.yaml` is consumed by EVerest Manager.
+
+To customise the EVerest module layout (e.g. change DC supply limits, add a new module), edit the relevant `.tmpl` file — no shell scripting required.
 
 ## Charging Profile Support
 

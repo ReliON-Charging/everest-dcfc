@@ -8,10 +8,12 @@ OCPP_VERSION="${OCPP_VERSION:-1.6}"
 OCPP_URL="${OCPP_URL:-ws://localhost:9000}"
 OCPP_ID="${OCPP_ID:-CP1}"
 OCPP_AUTH_PASSWORD="${OCPP_AUTH_PASSWORD:-DEADBEEFDEADBEEF}"
+NUM_CONNECTORS="${NUM_CONNECTORS:-1}"
 
 echo "OCPP Version: $OCPP_VERSION"
 echo "OCPP URL: $OCPP_URL"
 echo "OCPP ID: $OCPP_ID"
+echo "NUM_CONNECTORS: $NUM_CONNECTORS"
 
 # --- Directory Setup ---
 mkdir -p /etc/everest
@@ -36,18 +38,28 @@ SQLEOF
     echo "  - Created $PERSISTENT_DB with empty reservations"
 fi
 
+# --- Function: Generate EVerest YAML Configuration ---
+generate_everest_config() {
+    local ocpp_version="$1"
+    local output_file="$2"
+    if [[ "$ocpp_version" == "1.6" ]]; then
+        local template="/etc/everest/templates/config-ocpp16.yaml.tmpl"
+    else
+        local template="/etc/everest/templates/config-ocpp201.yaml.tmpl"
+    fi
+    gomplate --file "$template" --out "$output_file"
+}
+
 # --- Select Configuration Based on OCPP Version ---
 echo "Selecting configuration for OCPP $OCPP_VERSION..."
 
 case "$OCPP_VERSION" in
     "1.6"|"16"|"OCPP1.6"|"ocpp1.6")
         echo "Using OCPP 1.6 configuration"
-        CONFIG_TEMPLATE="/etc/everest/templates/config-ocpp16.yaml"
         OCPP_JSON_TEMPLATE="/etc/everest/templates/ocpp-config-16.json"
         ;;
     "2.0.1"|"201"|"OCPP2.0.1"|"ocpp2.0.1")
         echo "Using OCPP 2.0.1 configuration"
-        CONFIG_TEMPLATE="/etc/everest/templates/config-ocpp201.yaml"
         OCPP_JSON_TEMPLATE="/etc/everest/templates/ocpp-config-201.json"
         USE_DEVICE_MODEL=true
         # OCPP20 = OCPP 2.0.1 only (no 2.1 fallback)
@@ -57,7 +69,6 @@ case "$OCPP_VERSION" in
         ;;
     "2.1"|"21"|"OCPP2.1"|"ocpp2.1")
         echo "Using OCPP 2.1 configuration"
-        CONFIG_TEMPLATE="/etc/everest/templates/config-ocpp201.yaml"
         OCPP_JSON_TEMPLATE="/etc/everest/templates/ocpp-config-201.json"
         USE_DEVICE_MODEL=true
         # OCPP21 = OCPP 2.1 (may fall back to 2.0.1)
@@ -74,17 +85,28 @@ esac
 
 # --- Generate Active Configuration ---
 echo "Generating EVerest configuration..."
+echo "  Connectors: $NUM_CONNECTORS"
 
-# Copy base config
-cp "$CONFIG_TEMPLATE" /etc/everest/config.yaml
+# Dynamically generate EVerest YAML config based on NUM_CONNECTORS
+generate_everest_config "$OCPP_VERSION" /etc/everest/config.yaml
+
+# Build ConnectorPhaseRotation string for OCPP 1.6: "0.RST,1.RST,...,N.RST"
+PHASE_ROTATION="0.RST"
+for i in $(seq 1 "$NUM_CONNECTORS"); do
+    PHASE_ROTATION="${PHASE_ROTATION},${i}.RST"
+done
 
 # Process OCPP JSON config with jq
-# Replace placeholders with actual values
-jq --arg url "$OCPP_URL" --arg id "$OCPP_ID" '
+# Replace placeholders with actual values and set connector count
+jq --arg url "$OCPP_URL" --arg id "$OCPP_ID" \
+   --argjson num_connectors "$NUM_CONNECTORS" \
+   --arg phase_rotation "$PHASE_ROTATION" '
     # Handle OCPP 1.6 format
     if .Internal then
         .Internal.ChargePointId = $id |
-        .Internal.CentralSystemURI = ($url + "/" + $id)
+        .Internal.CentralSystemURI = ($url + "/" + $id) |
+        .Core.NumberOfConnectors = $num_connectors |
+        .Core.ConnectorPhaseRotation = $phase_rotation
     else
         .
     end |
@@ -199,6 +221,12 @@ if [ ! -f /home/everest/.node-red/flows.json ]; then
     cp /etc/everest/templates/flows.json /home/everest/.node-red/flows.json
 fi
 
+# Clamp connector selector max to NUM_CONNECTORS (runs every start)
+jq --argjson max "$NUM_CONNECTORS" \
+    'map(if .id == "connector-selector" then .max = $max else . end)' \
+    /home/everest/.node-red/flows.json > /tmp/flows-patched.json \
+    && mv /tmp/flows-patched.json /home/everest/.node-red/flows.json
+
 # Create Node-RED settings file
 cat > /home/everest/.node-red/settings.js << 'EOF'
 module.exports = {
@@ -245,6 +273,7 @@ echo "=== Configuration Summary ==="
 echo "OCPP Version: $OCPP_VERSION"
 echo "OCPP URL: $OCPP_URL"
 echo "OCPP ID: $OCPP_ID"
+echo "Connectors: $NUM_CONNECTORS"
 echo ""
 echo "Services:"
 echo "  - Mosquitto (MQTT): localhost:1883"

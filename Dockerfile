@@ -78,6 +78,9 @@ RUN mkdir -p build && cd build && \
     && make -j$(nproc) \
     && make install
 
+# --- Gomplate (config template engine) ---
+FROM hairyhenderson/gomplate:stable AS gomplate
+
 # --- Runtime Stage ---
 FROM ubuntu:24.04
 
@@ -150,6 +153,9 @@ RUN npm install -g --unsafe-perm \
 # Copy EVerest from builder
 COPY --from=builder /usr/local /usr/local
 
+# Copy gomplate binary
+COPY --from=gomplate /gomplate /bin/gomplate
+
 # Create non-root user (use UID/GID 10000 to avoid conflicts with existing users)
 RUN groupadd -g 10000 everest && \
     useradd -u 10000 -g everest -m -s /bin/bash everest
@@ -174,12 +180,10 @@ RUN echo '{}' > /usr/local/share/everest/modules/OCPP/user_config.json && \
         /usr/local/share/everest/modules/OCPP201
 
 # Copy configuration templates
-COPY config-ocpp16.yaml /etc/everest/templates/config-ocpp16.yaml
-COPY config-ocpp201.yaml /etc/everest/templates/config-ocpp201.yaml
+COPY config-ocpp16.yaml.tmpl /etc/everest/templates/config-ocpp16.yaml.tmpl
+COPY config-ocpp201.yaml.tmpl /etc/everest/templates/config-ocpp201.yaml.tmpl
 COPY ocpp-config-16.json /etc/everest/templates/ocpp-config-16.json
 COPY ocpp-config-201.json /etc/everest/templates/ocpp-config-201.json
-COPY device_model.sql /etc/everest/templates/device_model.sql
-RUN sqlite3 /etc/everest/templates/device_model.db < /etc/everest/templates/device_model.sql
 COPY flows.json /etc/everest/templates/flows.json
 
 # Copy supervisor configuration
@@ -198,6 +202,7 @@ EXPOSE 1880 1883
 ENV OCPP_VERSION="1.6"
 ENV OCPP_URL="ws://localhost:9000"
 ENV OCPP_ID="CP1"
+ENV NUM_CONNECTORS="1"
 
 # Health check (check Node-RED admin endpoint)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
